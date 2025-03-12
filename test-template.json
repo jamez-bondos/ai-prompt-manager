@@ -1,0 +1,17 @@
+[
+  {
+    "id": "1",
+    "name": "Basic Chat Prompt",
+    "content": "You are a helpful AI assistant. Please help me with {{task}}. Consider the following context: {{context}}."
+  },
+  {
+    "id": "2",
+    "name": "Code Review",
+    "content": "Please review the following code and provide feedback:\n\n```{{language}}\n{{code}}\n```\n\nFocus on: {{focus_areas}}."
+  },
+  {
+    "id": "3",
+    "name": "Content Creation",
+    "content": "Create a {{content_type}} about {{topic}} with the following characteristics:\n- Tone: {{tone}}\n- Target audience: {{audience}}\n- Length: {{length}}\n- Key points to include: {{key_points}}"
+  }
+] 
