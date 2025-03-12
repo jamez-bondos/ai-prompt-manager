@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, theme, Tooltip, Input, Button, Card, Space, message, Divider, Upload, Typography } from 'antd';
-import { BulbOutlined, SettingOutlined, MoonOutlined, ImportOutlined, ExportOutlined, UploadOutlined } from '@ant-design/icons';
+import { Layout, theme, Tooltip, Input, Button, Card, Space, message, Divider, Upload, Typography, Select } from 'antd';
+import { BulbOutlined, SettingOutlined, MoonOutlined, ImportOutlined, ExportOutlined, UploadOutlined, MessageOutlined, SendOutlined } from '@ant-design/icons';
+import Markdown from 'markdown-to-jsx';
+
 import TemplateList from './components/TemplateList';
 import TemplateEditor from './components/TemplateEditor';
 import { Template } from './types';
@@ -16,6 +18,9 @@ declare global {
       deleteTemplate: (templateId: string) => Promise<any>;
       exportTemplates: () => Promise<any>;
       importTemplates: () => Promise<any>;
+      sendChatMessage: (message: string, model: string) => Promise<any>;
+      saveSettings: (settings: any) => Promise<any>;
+      getSettings: () => Promise<any>;
     };
   }
 }
@@ -87,14 +92,94 @@ const App: React.FC = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeView, setActiveView] = useState<'prompt' | 'theme' | 'settings'>('prompt');
+  const [activeView, setActiveView] = useState<'prompt' | 'chat' | 'theme' | 'settings'>('prompt');
   const { token } = theme.useToken();
   const [messageApi, contextHolder] = message.useMessage();
+  const [chatMessages, setChatMessages] = useState<Array<{content: string, sender: 'user' | 'ai'}>>([]);
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [selectedModel, setSelectedModel] = useState('gpt-4o-mini');
+  const [settings, setSettings] = useState<any>({});
+
+  const markdownStyles = {
+    'h1, h2, h3, h4, h5, h6': {
+      color: 'white',
+      marginTop: '16px',
+      marginBottom: '8px',
+    },
+    'p': {
+      margin: '8px 0',
+    },
+    'pre': {
+      backgroundColor: '#2b2b2b',
+      padding: '12px',
+      borderRadius: '4px',
+      overflowX: 'auto',
+    },
+    'code': {
+      fontFamily: 'monospace',
+      backgroundColor: 'rgba(0,0,0,0.2)',
+      padding: '2px 4px',
+      borderRadius: '3px',
+    },
+    'blockquote': {
+      borderLeft: '4px solid #666',
+      paddingLeft: '16px',
+      margin: '8px 0',
+      color: '#ccc',
+    },
+    'ul, ol': {
+      paddingLeft: '20px',
+    },
+    'a': {
+      color: '#1890ff',
+      textDecoration: 'none',
+    },
+    'table': {
+      borderCollapse: 'collapse',
+      width: '100%',
+    },
+    'th, td': {
+      border: '1px solid #444',
+      padding: '8px',
+    },
+    'img': {
+      maxWidth: '100%',
+    }
+  };
 
   // Load templates on component mount
   useEffect(() => {
     loadTemplates();
+    loadSettings();
   }, []);
+
+  const loadSettings = async () => {
+    try {
+      const result = await window.api.getSettings();
+      if (result.success) {
+        setSettings(result.settings || {});
+      } else {
+        console.error('Error loading settings:', result.error);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
+  const handleSaveSettings = async (newSettings: any) => {
+    try {
+      const result = await window.api.saveSettings(newSettings);
+      if (result.success) {
+        messageApi.success('设置保存成功');
+        setSettings(newSettings);
+      } else {
+        messageApi.error(`保存设置失败: ${result.error || '未知错误'}`);
+      }
+    } catch (error) {
+      messageApi.error(`保存设置时出错: ${error}`);
+      console.error('Save settings error:', error);
+    }
+  };
 
   const loadTemplates = async () => {
     setLoading(true);
@@ -148,7 +233,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 导入模板处理函数
   const handleImportTemplates = async () => {
     try {
       const result = await window.api.importTemplates();
@@ -164,7 +248,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 导出模板处理函数
   const handleExportTemplates = async () => {
     try {
       const result = await window.api.exportTemplates();
@@ -177,6 +260,26 @@ const App: React.FC = () => {
       messageApi.error(`导出过程中出错: ${error}`);
       console.error('Export error:', error);
     }
+  };
+
+  const handleSendMessage = async () => {
+    if (!currentMessage.trim()) return;
+    
+    // Add user message to chat history
+    const newMessages = [...chatMessages, {content: currentMessage, sender: 'user' as const}];
+    setChatMessages(newMessages);
+    
+    const aiResponse = await window.api.sendChatMessage(currentMessage, selectedModel);
+    console.log('aiResponse', aiResponse);
+    setChatMessages([...newMessages, {content: aiResponse.message, sender: 'ai' as const}]);
+    
+    // // For now, just add a placeholder response
+    // setTimeout(() => {
+    //   setChatMessages([...newMessages, {content: 'This is a placeholder AI response.', sender: 'ai'}]);
+    // }, 500);
+    
+    // Clear input
+    setCurrentMessage('');
   };
 
   const handleSearch = (query: string) => {
@@ -230,6 +333,121 @@ const App: React.FC = () => {
             </div>
           </div>
         );
+        case 'chat':
+          return (
+            <div id="chat-view-container" style={{ display: 'flex', height: '100%' }}>
+              {/* Chat settings panel */}
+              <div id="chat-settings-container" style={{ 
+                width: '300px', 
+                height: '100%', 
+                borderRight: `1px solid ${token.colorBorderSecondary}`,
+                backgroundColor: '#151515',
+                overflow: 'auto',
+                padding: '16px',
+              }}>
+                <Typography.Title level={4} style={{ color: 'white', marginBottom: '24px' }}>Chat Settings</Typography.Title>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <Typography.Text strong style={{ color: 'white', display: 'block', marginBottom: '8px' }}>Models</Typography.Text>
+                  <Select
+                    style={{ width: '100%' }}
+                    value={selectedModel}
+                    onChange={setSelectedModel}
+                    options={[
+                      { value: 'openai/gpt-4o-mini', label: 'gpt-4o-mini' },
+                      { value: 'google/gemini-flash-1.5', label: 'gemini-flash-1.5' },
+                      { value: 'anthropic/claude-3.5-sonnet', label: 'claude-3.5-sonnet' },
+                    ]}
+                  />
+                </div>
+              </div>
+              
+              {/* Chat area */}
+              <div id="chat-area-container" style={{ 
+                flex: 1, 
+                height: '100%', 
+                width: 'calc(100% - 300px)',
+                backgroundColor: '#151515',
+                display: 'flex',
+                flexDirection: 'column',
+              }}>
+                {/* Chat history */}
+                <div id="chat-history" style={{ 
+                  flex: 1, 
+                  overflow: 'auto',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}>
+                  {chatMessages.map((message, index) => (
+                    <Card 
+                    key={index}
+                    style={{ 
+                      backgroundColor: message.sender === 'user' ? '#1f1f1f' : '#2c2c2c',
+                      borderRadius: '8px',
+                      alignSelf: message.sender === 'user' ? 'flex-end' : 'flex-start',
+                      width: message.sender === 'user' ? 'auto' : '85%',
+                      maxWidth: '85%',
+                      padding: '0',
+                    }}
+                    bodyStyle={{ padding: '12px 16px' }}
+                  >
+                    <div className="markdown-content" style={{ color: 'white' }}>
+                      <Markdown
+                        options={{
+                          overrides: {
+                            h1: { props: { style: { color: 'white', marginTop: '16px', marginBottom: '8px' } } },
+                            h2: { props: { style: { color: 'white', marginTop: '16px', marginBottom: '8px' } } },
+                            h3: { props: { style: { color: 'white', marginTop: '16px', marginBottom: '8px' } } },
+                            p: { props: { style: { margin: '8px 0', color: 'white' } } },
+                            pre: { props: { style: { backgroundColor: '#2b2b2b', padding: '12px', borderRadius: '4px', overflowX: 'auto' } } },
+                            code: { props: { style: { backgroundColor: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '3px', fontFamily: 'monospace' } } },
+                            blockquote: { props: { style: { borderLeft: '4px solid #666', paddingLeft: '16px', margin: '8px 0', color: '#ccc' } } },
+                            ul: { props: { style: { paddingLeft: '20px', color: 'white' } } },
+                            ol: { props: { style: { paddingLeft: '20px', color: 'white' } } },
+                            li: { props: { style: { color: 'white' } } },
+                            a: { props: { style: { color: '#1890ff', textDecoration: 'none' } } },
+                            img: { props: { style: { maxWidth: '100%' } } },
+                          },
+                        }}
+                      >
+                        {message.content}
+                      </Markdown>
+                    </div>
+                  </Card>
+                  ))}
+                </div>
+                
+                {/* Chat input */}
+                <div id="chat-input" style={{ 
+                  padding: '16px', 
+                  borderTop: `1px solid ${token.colorBorderSecondary}`,
+                  display: 'flex',
+                  gap: '8px',
+                }}>
+                  <Input.TextArea 
+                    value={currentMessage}
+                    onChange={e => setCurrentMessage(e.target.value)}
+                    placeholder="Type your message here..."
+                    autoSize={{ minRows: 1, maxRows: 4 }}
+                    onPressEnter={(e) => {
+                      if (!e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <Button 
+                    type="primary" 
+                    icon={<SendOutlined />} 
+                    onClick={handleSendMessage}
+                  />
+                </div>
+              </div>
+            </div>
+          );
       case 'theme':
         return (
           <div style={{ 
@@ -282,6 +500,25 @@ const App: React.FC = () => {
                 </div>
               </Space>
             </Card>
+
+            <Card title="API设置" style={{ marginTop: '24px' }}>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <div>
+                  <Typography.Text strong>Openrouter API Key</Typography.Text>
+                  <Input.Password
+                    placeholder="请输入API Key" 
+                    value={settings?.openrouter_apikey || ''}
+                    onChange={e => setSettings({...settings, openrouter_apikey: e.target.value})}
+                    style={{ marginTop: '8px' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+                  <Button type="primary" onClick={() => handleSaveSettings(settings)}>
+                    保存设置
+                  </Button>
+                </div>
+              </Space>
+            </Card>
           </div>
         );
       default:
@@ -315,6 +552,12 @@ const App: React.FC = () => {
               isActive={activeView === 'prompt'} 
               tooltip="Prompt" 
               onClick={() => setActiveView('prompt')}
+            />
+            <SidebarIcon 
+              icon={<MessageOutlined />} 
+              isActive={activeView === 'chat'} 
+              tooltip="Chat" 
+              onClick={() => setActiveView('chat')}
             />
           </div>
           <div style={{ 

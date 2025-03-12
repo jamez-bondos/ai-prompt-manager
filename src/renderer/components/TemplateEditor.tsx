@@ -236,8 +236,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSaveTemplat
                   padding: '8px 12px',
                   border: '1px solid #303030',
                   borderRadius: '4px',
-                  minHeight: '100px',
-                  maxHeight: '400px',
+                  height: '100%',
                   backgroundColor: '#141414',
                   whiteSpace: 'pre-wrap',
                   overflowY: 'auto'

@@ -3,6 +3,54 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 let mainWindow: BrowserWindow | null = null;
+import OpenAI from 'openai';
+
+// 提取的getSettings函数
+async function getSettings() {
+  try {
+    const userDataPath = app.getPath('userData');
+    const settingsFile = path.join(userDataPath, 'settings', 'settings.json');
+    
+    if (fs.existsSync(settingsFile)) {
+      const data = fs.readFileSync(settingsFile, 'utf8');
+      return JSON.parse(data);
+    }
+    
+    return {};
+  } catch (error) {
+    console.error('Error getting settings:', error);
+    throw error;
+  }
+}
+
+ipcMain.handle('save-settings', async (event, settings) => {
+  try {
+    const userDataPath = app.getPath('userData');
+    const settingsDir = path.join(userDataPath, 'settings');
+    
+    if (!fs.existsSync(settingsDir)) {
+      fs.mkdirSync(settingsDir, { recursive: true });
+    }
+    
+    const settingsFile = path.join(settingsDir, 'settings.json');
+    fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+ipcMain.handle('get-settings', async () => {
+  try {
+    const settings = await getSettings();
+    return { success: true, settings };
+  } catch (error) {
+    console.error('Error getting settings:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
 
 function createWindow() {
   // Create the browser window
@@ -280,3 +328,26 @@ ipcMain.handle('import-templates', async () => {
     return { success: false, error: (error as Error).message };
   }
 }); 
+
+ipcMain.handle('send-chat-message', async (event, message, model) => {
+  try {
+    const settings = await getSettings();
+    const openrouter_apikey = settings.openrouter_apikey;
+    if (!openrouter_apikey) {
+      return { success: false, error: 'OpenRouter API key not found' };
+    }
+    const openai = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: openrouter_apikey,
+      dangerouslyAllowBrowser: true
+    });
+    const response = await openai.chat.completions.create({
+      model: model,
+      messages: [{ role: 'user', content: message }],
+    });
+    return { success: true, message: response.choices[0].message.content };
+  } catch (error) {
+    console.error('Error sending chat message:', error);
+    return { success: false, error: (error as Error).message };
+  }
+});
