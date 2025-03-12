@@ -181,7 +181,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSaveTemplat
               
               <Form.Item 
                 name="content"
-                label={<span style={{ fontWeight: 'bold' }}>Prompt</span>}
+                label={<span style={{ fontWeight: 'bold' }}>Content</span>}
                 rules={[{ required: true, message: 'Please enter template content' }]}
               >
                 <TextArea 
@@ -203,7 +203,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSaveTemplat
                         href={form.getFieldValue('link')} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        style={{ padding: 0 }}
+                        style={{ paddingLeft: 5 }}
                       >
                         <LinkOutlined />
                       </a>
@@ -237,8 +237,10 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSaveTemplat
                   border: '1px solid #303030',
                   borderRadius: '4px',
                   minHeight: '100px',
+                  maxHeight: '400px',
                   backgroundColor: '#141414',
                   whiteSpace: 'pre-wrap',
+                  overflowY: 'auto'
                 }}
                 dangerouslySetInnerHTML={{ __html: highlightVariables(previewContent) }}
               />
