@@ -5,7 +5,7 @@ import * as crypto from 'crypto';
 let mainWindow: BrowserWindow | null = null;
 import OpenAI from 'openai';
 
-// 提取的getSettings函数
+// Extracted getSettings function
 async function getSettings() {
   try {
     const userDataPath = app.getPath('userData');
@@ -95,18 +95,18 @@ function initializeDefaultTemplates() {
     // Default templates
     const defaultTemplates = [
       {
-        title: '通用助手',
-        content: '你是一个有用的AI助手，请回答我的问题：{{question}}',
+        title: 'General Assistant',
+        content: 'You are a helpful AI assistant, please answer my question: {{question}}',
         link: 'https://www.google.com'
       },
       // {
-      //   title: '代码助手',
-      //   content: '你是一个编程专家，请帮我解决以下代码问题：\n\n语言：{{language}}\n\n问题：{{problem}}',
+      //   title: 'Code Assistant',
+      //   content: 'You are a programming expert, please help me solve this code problem:\n\nLanguage: {{language}}\n\nProblem: {{problem}}',
       //   link: 'https://www.google.com'
       // },
       // {
-      //   title: '翻译助手',
-      //   content: '请将以下{{sourceLanguage}}文本翻译成{{targetLanguage}}：\n\n{{text}}',
+      //   title: 'Translation Assistant',
+      //   content: 'Please translate the following {{sourceLanguage}} text to {{targetLanguage}}:\n\n{{text}}',
       //   link: 'https://www.google.com'
       // }
     ];

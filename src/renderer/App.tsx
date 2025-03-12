@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, theme, Tooltip, Input, Button, Card, Space, message, Divider, Upload, Typography, Select } from 'antd';
 import { BulbOutlined, SettingOutlined, MoonOutlined, ImportOutlined, ExportOutlined, UploadOutlined, MessageOutlined, SendOutlined } from '@ant-design/icons';
-import Markdown from 'markdown-to-jsx';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
 
 import TemplateList from './components/TemplateList';
 import TemplateEditor from './components/TemplateEditor';
@@ -25,7 +28,7 @@ declare global {
   }
 }
 
-// 自定义标题栏组件
+// Custom title bar component
 const TitleBar: React.FC = () => {
   return (
     <div
@@ -50,7 +53,7 @@ const TitleBar: React.FC = () => {
   );
 };
 
-// 侧边栏图标组件
+// Sidebar icon component
 const SidebarIcon: React.FC<{
   icon: React.ReactNode;
   isActive?: boolean;
@@ -100,57 +103,35 @@ const App: React.FC = () => {
   const [selectedModel, setSelectedModel] = useState('gpt-4o-mini');
   const [settings, setSettings] = useState<any>({});
 
-  const markdownStyles = {
-    'h1, h2, h3, h4, h5, h6': {
-      color: 'white',
-      marginTop: '16px',
-      marginBottom: '8px',
-    },
-    'p': {
-      margin: '8px 0',
-    },
-    'pre': {
-      backgroundColor: '#2b2b2b',
-      padding: '12px',
-      borderRadius: '4px',
-      overflowX: 'auto',
-    },
-    'code': {
-      fontFamily: 'monospace',
-      backgroundColor: 'rgba(0,0,0,0.2)',
-      padding: '2px 4px',
-      borderRadius: '3px',
-    },
-    'blockquote': {
-      borderLeft: '4px solid #666',
-      paddingLeft: '16px',
-      margin: '8px 0',
-      color: '#ccc',
-    },
-    'ul, ol': {
-      paddingLeft: '20px',
-    },
-    'a': {
-      color: '#1890ff',
-      textDecoration: 'none',
-    },
-    'table': {
-      borderCollapse: 'collapse',
-      width: '100%',
-    },
-    'th, td': {
-      border: '1px solid #444',
-      padding: '8px',
-    },
-    'img': {
-      maxWidth: '100%',
-    }
-  };
-
   // Load templates on component mount
   useEffect(() => {
     loadTemplates();
     loadSettings();
+
+    hljs.registerLanguage('javascript', require('highlight.js/lib/languages/javascript'));
+    hljs.registerLanguage('typescript', require('highlight.js/lib/languages/typescript'));
+    hljs.registerLanguage('python', require('highlight.js/lib/languages/python'));
+    hljs.registerLanguage('html', require('highlight.js/lib/languages/xml'));
+    hljs.registerLanguage('css', require('highlight.js/lib/languages/css'));
+    hljs.registerLanguage('json', require('highlight.js/lib/languages/json'));
+
+    marked.setOptions({
+      breaks: true,  // Support GitHub-style line breaks
+      gfm: true,     // Enable GitHub Flavored Markdown
+      headerIds: false,
+      mangle: false,
+      highlight: function(code, lang) {
+        try {
+          if (lang && hljs.getLanguage(lang)) {
+            return hljs.highlight(code, { language: lang }).value;
+          }
+          return hljs.highlightAuto(code).value;
+        } catch (error) {
+          console.error('Highlight error:', error);
+          return code; // Fallback handling
+        }
+      },
+    });
   }, []);
 
   const loadSettings = async () => {
@@ -170,14 +151,33 @@ const App: React.FC = () => {
     try {
       const result = await window.api.saveSettings(newSettings);
       if (result.success) {
-        messageApi.success('设置保存成功');
+        messageApi.success('Settings saved successfully');
         setSettings(newSettings);
       } else {
-        messageApi.error(`保存设置失败: ${result.error || '未知错误'}`);
+        messageApi.error(`Failed to save settings: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
-      messageApi.error(`保存设置时出错: ${error}`);
+      messageApi.error(`Error saving settings: ${error}`);
       console.error('Save settings error:', error);
+    }
+  };
+
+  const renderContent = (content: string) => {
+    try {
+      // Convert Markdown to HTML and sanitize content
+      const rawHtml = marked(content);
+      const cleanHtml = DOMPurify.sanitize(rawHtml, {
+        ADD_ATTR: ['class'], // Ensure class attributes are preserved
+      });
+      return (
+        <div 
+          className="markdown-content"
+          dangerouslySetInnerHTML={{ __html: cleanHtml }}
+        />
+      );
+    } catch (error) {
+      console.log('renderContent error', error);
+      return <div style={{ color: 'white', whiteSpace: 'pre-wrap' }}>{content}</div>;
     }
   };
 
@@ -237,13 +237,13 @@ const App: React.FC = () => {
     try {
       const result = await window.api.importTemplates();
       if (result.success) {
-        messageApi.success(`成功导入了 ${result.count || 0} 个提示词`);
-        await loadTemplates(); // 重新加载所有提示词
+        messageApi.success(`Successfully imported ${result.count || 0} prompts`);
+        await loadTemplates(); // Reload all prompts
       } else {
-        messageApi.error(`导入失败: ${result.error || '未知错误'}`);
+        messageApi.error(`Import failed: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
-      messageApi.error(`导入过程中出错: ${error}`);
+      messageApi.error(`Error during import: ${error}`);
       console.error('Import error:', error);
     }
   };
@@ -252,12 +252,12 @@ const App: React.FC = () => {
     try {
       const result = await window.api.exportTemplates();
       if (result.success) {
-        messageApi.success(`成功导出了 ${result.count || 0} 个提示词到 ${result.path || '文件'}`);
+        messageApi.success(`Successfully exported ${result.count || 0} prompts to ${result.path || 'file'}`);
       } else {
-        messageApi.error(`导出失败: ${result.error || '未知错误'}`);
+        messageApi.error(`Export failed: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
-      messageApi.error(`导出过程中出错: ${error}`);
+      messageApi.error(`Error during export: ${error}`);
       console.error('Export error:', error);
     }
   };
@@ -291,13 +291,13 @@ const App: React.FC = () => {
     template.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // 渲染当前活动视图的内容
+  // Render content for current active view
   const renderActiveView = () => {
     switch (activeView) {
       case 'prompt':
         return (
           <div id="prompt-view-container" style={{ display: 'flex', height: '100%' }}>
-            {/* 模板列表区域 */}
+            {/* Template list area */}
             <div id="template-list-container" style={{ 
               width: '300px', 
               height: '100%', 
@@ -317,7 +317,7 @@ const App: React.FC = () => {
               />
             </div>
             
-            {/* 编辑器区域 */}
+            {/* Editor area */}
             <div id="template-editor-container" style={{ 
               flex: 1, 
               height: '100%', 
@@ -370,12 +370,13 @@ const App: React.FC = () => {
                 backgroundColor: '#151515',
                 display: 'flex',
                 flexDirection: 'column',
+                fontSize: '16px',
               }}>
                 {/* Chat history */}
                 <div id="chat-history" style={{ 
                   flex: 1, 
                   overflow: 'auto',
-                  padding: '16px',
+                  padding: '8px',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '12px',
@@ -384,37 +385,21 @@ const App: React.FC = () => {
                     <Card 
                     key={index}
                     style={{ 
-                      backgroundColor: message.sender === 'user' ? '#1f1f1f' : '#2c2c2c',
+                      backgroundColor: message.sender === 'user' ? '#28B561' : '#363636',
                       borderRadius: '8px',
                       alignSelf: message.sender === 'user' ? 'flex-end' : 'flex-start',
-                      width: message.sender === 'user' ? 'auto' : '85%',
-                      maxWidth: '85%',
+                      width: message.sender === 'user' ? '20%' : '60%',
+                      maxWidth: '80%',
                       padding: '0',
+                      textAlign: message.sender === 'user' ? 'right' : 'left',
+                      paddingLeft: message.sender === 'user' ? '0' : '8px',
+                      paddingRight: message.sender === 'user' ? '8px' : '0',
                     }}
-                    bodyStyle={{ padding: '12px 16px' }}
+                    styles={{ 
+                      body: { padding: '4px' }
+                    }}
                   >
-                    <div className="markdown-content" style={{ color: 'white' }}>
-                      <Markdown
-                        options={{
-                          overrides: {
-                            h1: { props: { style: { color: 'white', marginTop: '16px', marginBottom: '8px' } } },
-                            h2: { props: { style: { color: 'white', marginTop: '16px', marginBottom: '8px' } } },
-                            h3: { props: { style: { color: 'white', marginTop: '16px', marginBottom: '8px' } } },
-                            p: { props: { style: { margin: '8px 0', color: 'white' } } },
-                            pre: { props: { style: { backgroundColor: '#2b2b2b', padding: '12px', borderRadius: '4px', overflowX: 'auto' } } },
-                            code: { props: { style: { backgroundColor: 'rgba(0,0,0,0.2)', padding: '2px 4px', borderRadius: '3px', fontFamily: 'monospace' } } },
-                            blockquote: { props: { style: { borderLeft: '4px solid #666', paddingLeft: '16px', margin: '8px 0', color: '#ccc' } } },
-                            ul: { props: { style: { paddingLeft: '20px', color: 'white' } } },
-                            ol: { props: { style: { paddingLeft: '20px', color: 'white' } } },
-                            li: { props: { style: { color: 'white' } } },
-                            a: { props: { style: { color: '#1890ff', textDecoration: 'none' } } },
-                            img: { props: { style: { maxWidth: '100%' } } },
-                          },
-                        }}
-                      >
-                        {message.content}
-                      </Markdown>
-                    </div>
+                    {renderContent(message.content)}
                   </Card>
                   ))}
                 </div>
@@ -424,26 +409,50 @@ const App: React.FC = () => {
                   padding: '16px', 
                   borderTop: `1px solid ${token.colorBorderSecondary}`,
                   display: 'flex',
-                  gap: '8px',
+                  flexDirection: 'column',
+                  gap: '4px'
                 }}>
-                  <Input.TextArea 
-                    value={currentMessage}
-                    onChange={e => setCurrentMessage(e.target.value)}
-                    placeholder="Type your message here..."
-                    autoSize={{ minRows: 1, maxRows: 4 }}
-                    onPressEnter={(e) => {
-                      if (!e.shiftKey) {
-                        e.preventDefault();
+                  <div style={{ 
+                    position: 'relative',
+                    width: '100%'
+                  }}>
+                    <Input.TextArea 
+                      value={currentMessage}
+                      onChange={e => setCurrentMessage(e.target.value)}
+                      placeholder="Type your message here..."
+                      autoSize={{ minRows: 2, maxRows: 10 }}
+                      onPressEnter={(e) => {
+                        if (!e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                          setCurrentMessage('');
+                        }
+                      }}
+                      style={{ 
+                        width: '100%', 
+                        fontSize: '16px',
+                        paddingRight: '48px'
+                      }}
+                    />
+                    <Button 
+                      type="primary" 
+                      icon={<SendOutlined />} 
+                      onClick={() => {
                         handleSendMessage();
-                      }
-                    }}
-                    style={{ flex: 1 }}
-                  />
-                  <Button 
-                    type="primary" 
-                    icon={<SendOutlined />} 
-                    onClick={handleSendMessage}
-                  />
+                        setCurrentMessage('');
+                      }}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        zIndex: 1
+                      }}
+                    />
+                  </div>
+                  <Typography.Text type="secondary" style={{ alignSelf: 'flex-end', fontSize: '12px' }}>
+                    Use Shift + Enter for new line
+                  </Typography.Text>
                 </div>
               </div>
             </div>
@@ -454,8 +463,8 @@ const App: React.FC = () => {
             padding: '24px', 
             color: 'white',
           }}>
-            <h2>主题设置</h2>
-            <p>这里将来会显示主题设置选项</p>
+            <h2>Theme Settings</h2>
+            <p>Theme settings options will be displayed here</p>
           </div>
         );
       case 'settings':
@@ -467,46 +476,46 @@ const App: React.FC = () => {
             margin: '0 auto',
           }}>
             {contextHolder}
-            <Typography.Title level={2}>应用设置</Typography.Title>
+            <Typography.Title level={2}>Application Settings</Typography.Title>
             
-            <Card title="导入与导出" style={{ marginTop: '24px' }}>
+            <Card title="Import & Export" style={{ marginTop: '24px' }}>
               <Space direction="vertical" style={{ width: '100%' }}>
                 <div>
-                  <Typography.Text strong>导入提示词</Typography.Text>
+                  <Typography.Text strong>Import Prompts</Typography.Text>
                   <Typography.Paragraph type="secondary">
-                    选择一个JSON文件导入提示词，文件格式必须是包含title/content/link字段的数组
+                    Select a JSON file to import prompts. The file must contain an array with title/content/link fields
                   </Typography.Paragraph>
                   <Button 
                     icon={<ImportOutlined />} 
                     onClick={handleImportTemplates}
                   >
-                    导入提示词
+                    Import Prompts
                   </Button>
                 </div>
                 
                 <Divider />
                 
                 <div>
-                  <Typography.Text strong>导出提示词</Typography.Text>
+                  <Typography.Text strong>Export Prompts</Typography.Text>
                   <Typography.Paragraph type="secondary">
-                    将所有提示词导出为JSON文件
+                    Export all prompts to a JSON file
                   </Typography.Paragraph>
                   <Button 
                     icon={<ExportOutlined />} 
                     onClick={handleExportTemplates}
                   >
-                    导出提示词
+                    Export Prompts
                   </Button>
                 </div>
               </Space>
             </Card>
 
-            <Card title="API设置" style={{ marginTop: '24px' }}>
+            <Card title="API Settings" style={{ marginTop: '24px' }}>
               <Space direction="vertical" style={{ width: '100%' }}>
                 <div>
                   <Typography.Text strong>Openrouter API Key</Typography.Text>
                   <Input.Password
-                    placeholder="请输入API Key" 
+                    placeholder="Enter API Key" 
                     value={settings?.openrouter_apikey || ''}
                     onChange={e => setSettings({...settings, openrouter_apikey: e.target.value})}
                     style={{ marginTop: '8px' }}
@@ -514,7 +523,7 @@ const App: React.FC = () => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
                   <Button type="primary" onClick={() => handleSaveSettings(settings)}>
-                    保存设置
+                    Save Settings
                   </Button>
                 </div>
               </Space>
@@ -530,7 +539,7 @@ const App: React.FC = () => {
     <Layout style={{ minHeight: '100vh', backgroundColor: '#151515' }}>
       <TitleBar />
       <Layout style={{ marginTop: '38px', minHeight: 'calc(100vh - 38px)', backgroundColor: '#151515' }}>
-        {/* 图标侧边栏 */}
+        {/* Icon sidebar */}
         <Sider
           width={48}
           theme="dark"
@@ -583,14 +592,14 @@ const App: React.FC = () => {
           </div>
         </Sider>
         
-        {/* 主内容区域 */}
+        {/* Main content area */}
         <div id="main-content-wrapper" style={{ 
           marginLeft: '48px', 
           height: 'calc(100vh - 38px)',
           width: 'calc(100% - 48px)',
           position: 'relative',
         }}>
-          {/* 主内容 */}
+          {/* Main content */}
           <div id="main-content" style={{ 
             height: '100%',
             backgroundColor: '#151515',

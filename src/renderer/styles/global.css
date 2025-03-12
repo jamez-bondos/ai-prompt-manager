@@ -66,3 +66,74 @@ code {
   border-radius: 2px;
   padding: 0 2px;
 } 
+
+.markdown-content {
+  color: white;
+}
+
+/* Ensure code block styles are correct */
+.markdown-content pre {
+  background-color: #292C34;
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+}
+
+/* Ensure highlight.js classes have correct colors */
+.hljs {
+  display: block;
+  overflow-x: auto;
+  color: #abb2bf;
+  background: #282c34;
+}
+
+/* Add styles for specific highlight.js classes */
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-name, .hljs-tag {
+  color: #e06c75;
+}
+
+.hljs-string, .hljs-title, .hljs-section, .hljs-attribute, .hljs-literal, .hljs-template-tag, .hljs-template-variable, .hljs-type, .hljs-addition {
+  color: #98c379;
+}
+
+.hljs-comment, .hljs-quote, .hljs-deletion {
+  color: #5c6370;
+  font-style: italic;
+}
+
+.markdown-content a {
+  color: #1890ff;
+  text-decoration: none;
+}
+
+.markdown-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid #444;
+  padding: 8px;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid #666;
+  padding-left: 16px;
+  margin: 8px 0;
+  color: #ccc;
+}

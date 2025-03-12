@@ -279,4 +279,4 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onSaveTemplat
   );
 };
 
-export default TemplateEditor; 
+export default TemplateEditor;
