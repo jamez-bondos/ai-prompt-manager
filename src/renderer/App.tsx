@@ -388,7 +388,7 @@ const App: React.FC = () => {
                       backgroundColor: message.sender === 'user' ? '#28B561' : '#363636',
                       borderRadius: '8px',
                       alignSelf: message.sender === 'user' ? 'flex-end' : 'flex-start',
-                      width: message.sender === 'user' ? '20%' : '60%',
+                      minWidth: message.sender === 'user' ? '20%' : '60%',
                       maxWidth: '80%',
                       padding: '0',
                       textAlign: message.sender === 'user' ? 'right' : 'left',
